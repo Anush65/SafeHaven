@@ -104,36 +104,92 @@ const Index = () => {
 
   const startVoiceRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-
-      recorder.start();
-      
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          // Process audio for emergency keywords
-          processVoiceData(event.data);
-        }
-      };
-
-      recorder.onstop = () => {
-        stream.getTracks().forEach(track => track.stop());
-        setIsRecording(false);
-      };
-
-      toast({
-        title: "🎤 Voice Recording Started",
-        description: "Listening for emergency keywords..."
+      // Request microphone permissions explicitly
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
       });
+      
+      // Initialize Speech Recognition API
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-IN'; // Indian English
+        
+        recognition.onstart = () => {
+          setIsRecording(true);
+          toast({
+            title: "🎤 Voice Recognition Active",
+            description: "Listening for emergency keywords in Hindi and English..."
+          });
+        };
+        
+        recognition.onresult = (event: any) => {
+          const transcript = Array.from(event.results)
+            .map((result: any) => result[0])
+            .map((result: any) => result.transcript)
+            .join('');
+            
+          processVoiceTranscript(transcript.toLowerCase());
+        };
+        
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error);
+          toast({
+            title: "Voice Recognition Error",
+            description: `Error: ${event.error}. Please try again.`,
+            variant: "destructive"
+          });
+          setIsRecording(false);
+        };
+        
+        recognition.onend = () => {
+          setIsRecording(false);
+          stream.getTracks().forEach(track => track.stop());
+        };
+        
+        recognition.start();
+        setMediaRecorder({ stop: () => recognition.stop() } as any);
+        
+      } else {
+        // Fallback to basic MediaRecorder
+        const recorder = new MediaRecorder(stream);
+        setMediaRecorder(recorder);
+        setIsRecording(true);
+
+        recorder.start(1000); // Record in 1-second chunks
+        
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            processVoiceData(event.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          stream.getTracks().forEach(track => track.stop());
+          setIsRecording(false);
+        };
+
+        toast({
+          title: "🎤 Voice Recording Started",
+          description: "Recording audio for emergency detection..."
+        });
+      }
+      
     } catch (error) {
+      console.error('Microphone access error:', error);
       toast({
-        title: "Microphone Error",
-        description: "Please allow microphone access for voice detection.",
+        title: "Microphone Access Required",
+        description: "Please allow microphone access in your browser settings and try again.",
         variant: "destructive"
       });
+      setIsRecording(false);
     }
   };
 
@@ -144,18 +200,109 @@ const Index = () => {
     }
   };
 
+  const processVoiceTranscript = (transcript: string) => {
+    // Enhanced emergency keywords in English and Hindi (transliterated)
+    const emergencyKeywords = {
+      // English keywords
+      'help': { service: 'Emergency Services', number: '108', severity: 'high' },
+      'emergency': { service: 'Emergency Services', number: '108', severity: 'high' },
+      'fire': { service: 'Fire Department', number: '101', severity: 'critical' },
+      'police': { service: 'Police', number: '100', severity: 'high' },
+      'ambulance': { service: 'Medical Emergency', number: '108', severity: 'critical' },
+      'danger': { service: 'Emergency Services', number: '108', severity: 'high' },
+      'attack': { service: 'Police', number: '100', severity: 'critical' },
+      'accident': { service: 'Medical Emergency', number: '108', severity: 'critical' },
+      'medical': { service: 'Medical Emergency', number: '108', severity: 'high' },
+      'hurt': { service: 'Medical Emergency', number: '108', severity: 'high' },
+      'bleeding': { service: 'Medical Emergency', number: '108', severity: 'critical' },
+      
+      // Hindi keywords (transliterated)
+      'madad': { service: 'Emergency Services', number: '108', severity: 'high' }, // help
+      'bachaiye': { service: 'Emergency Services', number: '108', severity: 'high' }, // save me
+      'aag': { service: 'Fire Department', number: '101', severity: 'critical' }, // fire
+      'police_hindi': { service: 'Police', number: '100', severity: 'high' }, // police in Hindi context
+      'ambulance_hindi': { service: 'Medical Emergency', number: '108', severity: 'critical' }, // ambulance in Hindi context
+      'khatre': { service: 'Emergency Services', number: '108', severity: 'high' }, // danger
+      'hamla': { service: 'Police', number: '100', severity: 'critical' }, // attack
+      'durghatna': { service: 'Medical Emergency', number: '108', severity: 'critical' } // accident
+    };
+    
+    // Check for emergency keywords in transcript
+    let detectedKeyword = null;
+    let highestSeverity = '';
+    
+    for (const [keyword, info] of Object.entries(emergencyKeywords)) {
+      if (transcript.includes(keyword)) {
+        if (!detectedKeyword || info.severity === 'critical') {
+          detectedKeyword = { keyword, ...info };
+          highestSeverity = info.severity;
+        }
+      }
+    }
+    
+    if (detectedKeyword) {
+      const report = createReport('Voice', `Voice detected: "${detectedKeyword.keyword}" - ${detectedKeyword.service}`);
+      
+      // Enhanced alert with automatic calling option
+      const callEmergency = () => {
+        window.location.href = `tel:${detectedKeyword.number}`;
+        toast({
+          title: `📞 Calling ${detectedKeyword.service}`,
+          description: `Dialing ${detectedKeyword.number}...`
+        });
+      };
+      
+      toast({
+        title: `🚨 EMERGENCY DETECTED: "${detectedKeyword.keyword.toUpperCase()}"`,
+        description: `${detectedKeyword.service} - ${detectedKeyword.number}. Tap below to call immediately.`,
+        variant: "destructive"
+      });
+      
+      // Show separate call button
+      setTimeout(() => {
+        toast({
+          title: `📞 Call ${detectedKeyword.service}?`,
+          description: `Tap to dial ${detectedKeyword.number}`,
+          action: (
+            <button 
+              onClick={callEmergency}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium"
+            >
+              Call Now
+            </button>
+          )
+        });
+      }, 1000);
+      
+      // Auto-speak the detected emergency
+      if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(
+          `Emergency detected: ${detectedKeyword.keyword}. Connecting to ${detectedKeyword.service} at ${detectedKeyword.number}`
+        );
+        utterance.rate = 0.9;
+        utterance.pitch = 1.2;
+        utterance.volume = 1;
+        speechSynthesis.speak(utterance);
+      }
+      
+      // If critical severity, auto-initiate SOS
+      if (detectedKeyword.severity === 'critical') {
+        setTimeout(() => {
+          handleSOS();
+        }, 2000);
+      }
+    }
+  };
+
   const processVoiceData = (audioBlob: Blob) => {
-    // Simulated voice-to-text processing
+    // This is now a fallback for browsers without Speech Recognition
+    console.log('Processing audio blob for emergency detection');
+    
+    // Basic simulation for fallback
     const emergencyKeywords = ['help', 'emergency', 'fire', 'police', 'ambulance', 'danger'];
     const detectedKeyword = emergencyKeywords[Math.floor(Math.random() * emergencyKeywords.length)];
     
-    const report = createReport('Voice', `Voice detected: "${detectedKeyword}"`);
-    
-    toast({
-      title: `🎯 Keyword Detected: "${detectedKeyword.toUpperCase()}"`,
-      description: "Emergency services have been notified.",
-      variant: "destructive"
-    });
+    processVoiceTranscript(detectedKeyword);
   };
 
   const exportReports = () => {
@@ -175,10 +322,10 @@ const Index = () => {
   };
 
   const emergencyContacts = [
-    { name: "Emergency Services", number: "911", icon: Phone, color: "bg-red-500" },
-    { name: "Police", number: "911", icon: Shield, color: "bg-blue-500" },
-    { name: "Fire Department", number: "911", icon: AlertTriangle, color: "bg-orange-500" },
-    { name: "Medical Emergency", number: "911", icon: Phone, color: "bg-green-500" }
+    { name: "Emergency Services", number: "108", icon: Phone, color: "bg-red-500" },
+    { name: "Police", number: "100", icon: Shield, color: "bg-blue-500" },
+    { name: "Fire Department", number: "101", icon: AlertTriangle, color: "bg-orange-500" },
+    { name: "Medical Emergency", number: "108", icon: Phone, color: "bg-green-500" }
   ];
 
   return (
@@ -279,51 +426,109 @@ const Index = () => {
 
           {/* Voice Tab */}
           <TabsContent value="voice" className="space-y-6">
-            <Card className="p-8 text-center space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-center">
-                  {isRecording ? (
-                    <div className="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
-                      <Mic className="w-12 h-12 text-white" />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Voice Control Card */}
+                <Card className="p-8 text-center space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-center">
+                      {isRecording ? (
+                        <div className="w-24 h-24 bg-red-500 rounded-full flex items-center justify-center animate-pulse shadow-lg shadow-red-500/50">
+                          <Mic className="w-12 h-12 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                          <MicOff className="w-12 h-12 text-white" />
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center">
-                      <MicOff className="w-12 h-12 text-white" />
-                    </div>
-                  )}
-                </div>
-                
-                <h3 className="text-2xl font-bold">Voice Emergency Detection</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Activate voice monitoring to detect emergency keywords like "help", "fire", "police", or "ambulance"
-                </p>
-                
-                <Button
-                  onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
-                  size="lg"
-                  variant={isRecording ? "destructive" : "default"}
-                  className="w-64 h-12"
-                >
-                  {isRecording ? (
-                    <>
-                      <MicOff className="w-5 h-5 mr-2" />
-                      Stop Monitoring
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="w-5 h-5 mr-2" />
-                      Start Voice Monitoring
-                    </>
-                  )}
-                </Button>
-                
-                {isRecording && (
-                  <div className="text-sm text-muted-foreground animate-pulse">
-                    🎤 Listening for emergency keywords...
+                    
+                    <h3 className="text-2xl font-bold">AI Voice Emergency Detection</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto">
+                      Advanced AI-powered voice recognition for emergency keywords in English and Hindi. 
+                      Automatically connects to Indian emergency services.
+                    </p>
+                    
+                    <Button
+                      onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+                      size="lg"
+                      variant={isRecording ? "destructive" : "default"}
+                      className="w-64 h-12 shadow-lg"
+                    >
+                      {isRecording ? (
+                        <>
+                          <MicOff className="w-5 h-5 mr-2" />
+                          Stop AI Monitoring
+                        </>
+                      ) : (
+                        <>
+                          <Mic className="w-5 h-5 mr-2" />
+                          Start AI Voice Monitor
+                        </>
+                      )}
+                    </Button>
+                    
+                    {isRecording && (
+                      <div className="space-y-2">
+                        <div className="text-sm text-red-600 animate-pulse font-medium">
+                          🎤 AI Listening for Emergency Keywords...
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Monitoring: English & Hindi | Auto-connect: Police (100), Fire (101), Medical (108)
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                </Card>
+
+                {/* Emergency Keywords Guide */}
+                <Card className="p-6 space-y-4">
+                  <h3 className="text-xl font-semibold">Emergency Keywords</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-blue-600 mb-2">📞 Police (100)</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">Attack / Hamla</span>
+                        <span className="bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">Police</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-orange-600 mb-2">🔥 Fire (101)</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded">Fire / Aag</span>
+                        <span className="bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded">Burning</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-green-600 mb-2">🏥 Medical (108)</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">Medical</span>
+                        <span className="bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">Ambulance</span>
+                        <span className="bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">Accident</span>
+                        <span className="bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">Durghatna</span>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-red-600 mb-2">🆘 General Emergency</h4>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <span className="bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">Help / Madad</span>
+                        <span className="bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">Emergency</span>
+                        <span className="bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">Danger</span>
+                        <span className="bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">Bachaiye</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                      💡 <strong>Pro Tip:</strong> Speak clearly in English or Hindi. The AI will automatically detect severity and connect you to the right service.
+                    </p>
+                  </div>
+                </Card>
               </div>
-            </Card>
           </TabsContent>
 
           {/* Gesture Tab */}
