@@ -170,34 +170,93 @@ const GestureRecognition = () => {
   const recognizeGesture = (landmarks: HandLandmarks[]) => {
     if (!landmarks || landmarks.length < 21) return null;
 
-    // Simple gesture recognition based on finger positions
-    const thumbTip = landmarks[4];
-    const indexTip = landmarks[8];
-    const middleTip = landmarks[12];
-    const ringTip = landmarks[16];
-    const pinkyTip = landmarks[20];
+    // Get key landmark points
     const wrist = landmarks[0];
+    const thumbTip = landmarks[4];
+    const thumbMcp = landmarks[2];
+    const indexTip = landmarks[8];
+    const indexPip = landmarks[6];
+    const indexMcp = landmarks[5];
+    const middleTip = landmarks[12];
+    const middlePip = landmarks[10];
+    const middleMcp = landmarks[9];
+    const ringTip = landmarks[16];
+    const ringPip = landmarks[14];
+    const ringMcp = landmarks[13];
+    const pinkyTip = landmarks[20];
+    const pinkyPip = landmarks[18];
+    const pinkyMcp = landmarks[17];
 
-    // Calculate finger extensions
-    const thumbUp = thumbTip.y < wrist.y - 0.1;
-    const indexUp = indexTip.y < wrist.y - 0.1;
-    const middleUp = middleTip.y < wrist.y - 0.1;
-    const ringUp = ringTip.y < wrist.y - 0.1;
-    const pinkyUp = pinkyTip.y < wrist.y - 0.1;
+    // Helper function to check if finger is extended
+    const isFingerExtended = (tip: HandLandmarks, pip: HandLandmarks, mcp: HandLandmarks) => {
+      const tipToPip = Math.sqrt(Math.pow(tip.x - pip.x, 2) + Math.pow(tip.y - pip.y, 2));
+      const pipToMcp = Math.sqrt(Math.pow(pip.x - mcp.x, 2) + Math.pow(pip.y - mcp.y, 2));
+      const tipToMcp = Math.sqrt(Math.pow(tip.x - mcp.x, 2) + Math.pow(tip.y - mcp.y, 2));
+      
+      // If tip is further from mcp than pip, finger is likely extended
+      return tipToMcp > (tipToPip + pipToMcp) * 0.8;
+    };
+
+    // Check thumb extension (different logic due to thumb orientation)
+    const isThumbExtended = () => {
+      const thumbToWrist = Math.sqrt(Math.pow(thumbTip.x - wrist.x, 2) + Math.pow(thumbTip.y - wrist.y, 2));
+      const thumbMcpToWrist = Math.sqrt(Math.pow(thumbMcp.x - wrist.x, 2) + Math.pow(thumbMcp.y - wrist.y, 2));
+      return thumbToWrist > thumbMcpToWrist * 1.2;
+    };
+
+    // Determine finger states
+    const thumbExtended = isThumbExtended();
+    const indexExtended = isFingerExtended(indexTip, indexPip, indexMcp);
+    const middleExtended = isFingerExtended(middleTip, middlePip, middleMcp);
+    const ringExtended = isFingerExtended(ringTip, ringPip, ringMcp);
+    const pinkyExtended = isFingerExtended(pinkyTip, pinkyPip, pinkyMcp);
+
+    // Count extended fingers for confidence calculation
+    const extendedCount = [thumbExtended, indexExtended, middleExtended, ringExtended, pinkyExtended].filter(Boolean).length;
 
     let gestureType = '';
-    let confidence = 0.8;
+    let confidence = 0.7;
 
-    if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) {
+    // Gesture recognition patterns
+    if (thumbExtended && !indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
       gestureType = 'thumb_up';
-    } else if (!thumbUp && indexUp && middleUp && !ringUp && !pinkyUp) {
+      confidence = 0.9;
+    } else if (!thumbExtended && indexExtended && middleExtended && !ringExtended && !pinkyExtended) {
       gestureType = 'peace_sign';
-    } else if (!thumbUp && indexUp && !middleUp && !ringUp && !pinkyUp) {
+      confidence = 0.9;
+    } else if (!thumbExtended && indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
       gestureType = 'pointing';
-    } else if (!thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) {
+      confidence = 0.85;
+    } else if (!thumbExtended && !indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
       gestureType = 'fist';
-    } else if (thumbUp && indexUp && middleUp && ringUp && pinkyUp) {
+      confidence = 0.9;
+    } else if (thumbExtended && indexExtended && middleExtended && ringExtended && pinkyExtended) {
       gestureType = 'open_palm';
+      confidence = 0.8;
+    } else if (thumbExtended && indexExtended && !middleExtended && !ringExtended && !pinkyExtended) {
+      gestureType = 'ok_sign';
+      confidence = 0.8;
+    }
+
+    // Adjust confidence based on gesture clarity
+    if (gestureType) {
+      // Bonus for clear gestures (specific finger count)
+      if (extendedCount === 1 || extendedCount === 2 || extendedCount === 5) {
+        confidence += 0.05;
+      }
+      
+      // Calculate hand stability (less movement = higher confidence)
+      const palmCenter = {
+        x: (indexMcp.x + middleMcp.x + ringMcp.x + pinkyMcp.x) / 4,
+        y: (indexMcp.y + middleMcp.y + ringMcp.y + pinkyMcp.y) / 4
+      };
+      
+      const handSize = Math.sqrt(Math.pow(wrist.x - palmCenter.x, 2) + Math.pow(wrist.y - palmCenter.y, 2));
+      if (handSize > 0.15 && handSize < 0.4) {
+        confidence += 0.05; // Good hand distance from camera
+      }
+      
+      confidence = Math.min(confidence, 0.95); // Cap at 95%
     }
 
     return gestureType ? { type: gestureType, confidence } : null;
