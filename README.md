@@ -1,73 +1,58 @@
-# Welcome to your Lovable project
+# SafeHaven 🛡️
 
-## Project info
+Voice & Gesture Emergency Reporting System
 
-**URL**: https://lovable.dev/projects/3ba95fd0-fd02-4ea6-81e3-8fff3dae29ae
+**SafeHaven** is an inclusive, offline-first web application designed to empower individuals to report emergencies instantly, overcoming barriers of language, literacy, and ability. It enables reporting through intuitive voice commands and real-time American Sign Language (ASL) fingerspelling recognition, ensuring help is accessible to everyone.
 
-## How can I edit this code?
+🏆 **Built for a 18-Hour Hackathon**
 
-There are several ways of editing your application.
+## 🌟 Features
 
-**Use Lovable**
+-   **Multi-Modal Reporting**: Choose the method that works for you.
+    -   **Voice Input**: Speak your emergency. The app transcribes your speech and detects critical keywords to trigger the appropriate response.
+    -   **Gesture Input**: Use your webcam to fingerspell words in ASL (A-Z). The app recognizes letters in real-time to form your message (e.g., "H-E-L-P").
+-   **SOS with Location**: With one click, simulate sending your GPS coordinates to emergency contacts. *(Note: Full SMS functionality requires a backend service like Twilio).*
+-   **Offline-First Design**: Core functionality remains available even without an internet connection. The AI model and app shell are cached for offline use.
+-   **Instant Guidance**: Automatically displays relevant local emergency helpline numbers and resources based on the content of your report.
+-   **Accessible & Inclusive**: Designed with a11y best practices to serve users with diverse abilities and needs.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3ba95fd0-fd02-4ea6-81e3-8fff3dae29ae) and start prompting.
+## 🛠️ Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+-   **Frontend Framework**: React 18 + TypeScript
+-   **Build Tool**: Vite
+-   **AI/ML**: TensorFlow.js for in-browser gesture recognition
+-   **Voice Processing**: Web Speech API
+-   **Styling**: Tailwind CSS
+-   **Icons**: Lucide React
+-   **Offline Capability**: Vite PWA Plugin (Service Worker)
 
-**Use your preferred IDE**
+## 🚀 Getting Started
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+-   Node.js (v18 or higher)
+-   npm or yarn
 
-Follow these steps:
+### Installation
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1.  **Clone the repository**
+    ```bash
+    git clone https://github.com/YOUR_USERNAME/SafeHaven.git
+    cd SafeHaven
+    ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2.  **Install dependencies**
+    ```bash
+    npm install
+    ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3.  **Start the development server**
+    ```bash
+    npm run dev
+    ```
+4.  **Open your browser** and navigate to the local address shown in the terminal (usually `http://localhost:5173`).
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+### Building for Production
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/3ba95fd0-fd02-4ea6-81e3-8fff3dae29ae) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+```bash
+npm run build
