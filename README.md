@@ -16,7 +16,7 @@ Voice & Gesture Emergency Reporting System
 -   **Instant Guidance**: Automatically displays relevant local emergency helpline numbers and resources based on the content of your report.
 -   **Accessible & Inclusive**: Designed with a11y best practices to serve users with diverse abilities and needs.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 -   **Frontend Framework**: React 18 + TypeScript
 -   **Build Tool**: Vite
