@@ -4,7 +4,7 @@ Voice & Gesture Emergency Reporting System
 
 **SafeHaven** is an inclusive, offline-first web application designed to empower individuals to report emergencies instantly, overcoming barriers of language, literacy, and ability. It enables reporting through intuitive voice commands and real-time American Sign Language (ASL) fingerspelling recognition, ensuring help is accessible to everyone.
 
-**Built for a 18-Hour Hackathon**
+**Built for a 18-Hour Hackathon.**
 
 ## Features
 
